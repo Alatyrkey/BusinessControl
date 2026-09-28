@@ -32,7 +32,7 @@ const ANSWERS = [
   },
 ];
 
-const API_BASE_URL = "https://businesscontrol-backend.onrender.com/api";";
+const API_BASE_URL = "https://businesscontrol-backend.onrender.com/api";
 
 async function apiRequest(path, options = {}) {
   const initData = getMaxInitData();
