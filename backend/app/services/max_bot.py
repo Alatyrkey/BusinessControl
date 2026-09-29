@@ -362,11 +362,14 @@ class MaxBot:
 
         callback = update.get("callback") or {}
         payload = callback.get("payload")
-        chat_id = update.get("chat_id")
 
-        user = update.get("user") or {}
+        message = update.get("message") or {}
+        recipient = message.get("recipient") or {}
+        chat_id = recipient.get("chat_id")
+
+        user = callback.get("user") or {}
         user_id = user.get("user_id")
-
+        
         if user_id is None:
             logger.warning(
                 "message_callback без user.user_id: %s",
