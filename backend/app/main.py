@@ -28,13 +28,18 @@ reminder_service = ReminderService(max_bot)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    bot_task = asyncio.create_task(max_bot.run_polling())
     reminder_task = asyncio.create_task(reminder_service.run())
 
     try:
         yield
     finally:
+        max_bot.stop()
         reminder_service.stop()
+
+        await bot_task
         await reminder_task
+
         await max_bot.close()
 
 
