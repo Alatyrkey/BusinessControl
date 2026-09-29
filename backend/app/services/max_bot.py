@@ -363,7 +363,7 @@ class MaxBot:
 
         callback = update.get("callback") or {}
         payload = callback.get("payload")
-        
+
         callback_id = callback.get("callback_id")
 
         if callback_id and callback_id in self._processed_callbacks:
@@ -522,6 +522,13 @@ class MaxBot:
                     self._marker = next_marker
 
                 for update in updates:
+                    logger.info(
+                        "MAX UPDATE: type=%s callback_id=%s marker=%s",
+                        update.get("update_type"),
+                        (update.get("callback") or {}).get("callback_id"),
+                        self._marker,
+                    )
+                    
                     try:
                         await self.handle_update(update)
 
