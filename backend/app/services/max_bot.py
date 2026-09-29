@@ -340,6 +340,13 @@ class MaxBot:
 
         if not text or chat_id is None:
             return
+        
+        if text.strip().lower() in {"/start", "start"}:
+            await self.send_main_menu(
+                chat_id=chat_id,
+                text=WELCOME_TEXT,
+            )
+            return
 
         logger.info(
             "Получено сообщение. chat_id=%s text=%r",
