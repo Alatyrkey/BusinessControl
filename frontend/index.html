@@ -5,11 +5,94 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+
+    <!-- ВРЕМЕННАЯ ДИАГНОСТИКА: удалить после нахождения причины -->
+    <script>
+      (function () {
+        var BUILD = "diag-1";
+        var errors = [];
+
+        function safe(fn) {
+          try { return fn(); } catch (e) { return "ERR: " + e; }
+        }
+
+        function report(force) {
+          var root = document.getElementById("root");
+          var boot = document.getElementById("bc-boot");
+          var failed =
+            errors.length > 0 ||
+            !root ||
+            root.children.length === 0 ||
+            !!boot;
+          if (!failed && !force) return;
+
+          var wa = window.WebApp;
+          var lines = [
+            "BUILD: " + BUILD,
+            "UA: " + navigator.userAgent,
+            "typeof WebApp: " + typeof wa,
+            "initData length: " +
+              safe(function () { return wa && wa.initData ? wa.initData.length : 0; }),
+            "WebApp.platform: " + safe(function () { return wa && wa.platform; }),
+            "WebApp.version: " + safe(function () { return wa && wa.version; }),
+            "colorScheme(prefers): " +
+              safe(function () {
+                return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+              }),
+            "#root exists: " + !!root,
+            "#root children: " + (root ? root.children.length : "n/a"),
+            "#root text length: " + (root ? root.innerText.length : "n/a"),
+            "placeholder still here: " + !!boot,
+            "errors (" + errors.length + "):"
+          ].concat(errors);
+
+          var box = document.getElementById("bc-diag");
+          if (!box) {
+            box = document.createElement("pre");
+            box.id = "bc-diag";
+            box.style.cssText =
+              "position:fixed;left:0;right:0;top:0;bottom:0;z-index:2147483647;" +
+              "margin:0;padding:12px;overflow:auto;background:#fff;color:#c00;" +
+              "font:12px/1.4 monospace;white-space:pre-wrap;word-break:break-all;";
+            (document.body || document.documentElement).appendChild(box);
+          }
+          box.textContent = lines.join("\n");
+        }
+
+        window.addEventListener(
+          "error",
+          function (e) {
+            var t = e.target;
+            if (t && t !== window && (t.src || t.href)) {
+              errors.push("RESOURCE FAILED: " + (t.src || t.href));
+            } else {
+              errors.push(
+                "JS ERROR: " + e.message + " @ " + e.filename + ":" + e.lineno + ":" + e.colno
+              );
+            }
+            report(false);
+          },
+          true
+        );
+
+        window.addEventListener("unhandledrejection", function (e) {
+          errors.push("PROMISE: " + (e.reason && e.reason.message ? e.reason.message : e.reason));
+          report(false);
+        });
+
+        setTimeout(function () { report(false); }, 4000);
+        setTimeout(function () { report(false); }, 10000);
+      })();
+    </script>
   </head>
   <body>
-  <div id="root"></div>
+    <div id="root">
+      <div id="bc-boot" style="padding:16px;font:14px sans-serif;color:#666">
+        Загрузка… diag-1
+      </div>
+    </div>
 
-  <script src="https://st.max.ru/js/max-web-app.js"></script>
-  <script type="module" src="/src/main.jsx"></script>
-</body>
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
