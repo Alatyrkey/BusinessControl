@@ -60,10 +60,11 @@ def seed() -> None:
         existing_items = db.query(Item).count()
 
         if existing_items > 0:
-            raise ValueError(
-                f"В таблице items уже есть записи: {existing_items}. "
-                "Для повторного seed сначала очистите тестовую БД."
+            print(
+                f"SEED SKIPPED: в таблице items уже есть записи: "
+                f"{existing_items}"
             )
+            return
 
         for data in items_data:
             db.add(
