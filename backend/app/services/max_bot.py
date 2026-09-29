@@ -299,33 +299,8 @@ class MaxBot:
         self,
         update: dict,
     ) -> None:
-        """Обработать запуск бота."""
-
-        chat_id = update.get("chat_id")
-
-        if chat_id is None:
-            logger.warning(
-                "bot_started без chat_id: %s",
-                update,
-            )
-            return
-
-        logger.info(
-            "Пользователь запустил бота. chat_id=%s",
-            chat_id,
-        )
-
-        try:
-            await self.send_main_menu(
-                chat_id=chat_id,
-                text=WELCOME_TEXT,
-            )
-
-        except MaxApiError:
-            logger.exception(
-                "Не удалось отправить приветствие. chat_id=%s",
-                chat_id,
-            )
+        """Игнорировать автоматический запуск бота."""
+        return
 
     async def handle_message_created(
         self,
