@@ -5,12 +5,14 @@ from typing import Any
 import httpx
 
 from app.config import settings
+from app.database import SessionLocal
+from app.models import Business, Checklist, ChecklistItem
 
 
 logger = logging.getLogger(__name__)
 
 
-UPDATE_TYPES = "bot_started,message_created"
+UPDATE_TYPES = "bot_started,message_created,message_callback"
 
 
 WELCOME_TEXT = (
@@ -26,6 +28,13 @@ WELCOME_TEXT = (
     "🛠️Пошаговые инструкции по устранению\n\n"
     "Готовы проверить свой бизнес?"
 )
+
+MENU_TEXT = "Выберите действие:"
+
+START_CHECK_PAYLOAD = "start_check"
+MY_CHECKS_PAYLOAD = "my_checks"
+LAST_RESULT_PAYLOAD = "last_result"
+
 
 
 class MaxApiError(Exception):
@@ -50,6 +59,90 @@ class MaxBot:
 
         self._marker: int | None = None
         self._stop_event = asyncio.Event()
+
+    async def get_last_checklist_result(
+        self,
+        user_id: int,
+    ) -> str:
+        """Сформировать краткий результат последней проверки."""
+
+        db = SessionLocal()
+
+        try:
+            business = (
+                db.query(Business)
+                .filter(Business.user_id == user_id)
+                .order_by(Business.updated_at.desc())
+                .first()
+            )
+
+            if business is None:
+                return (
+                    "📊 У вас пока нет проверок.\n\n"
+                    "Сначала запустите самопроверку в приложении."
+                )
+
+            checklist = (
+                db.query(Checklist)
+                .filter(Checklist.business_id == business.id)
+                .order_by(
+                    Checklist.updated_at.desc(),
+                    Checklist.id.desc(),
+                )
+                .first()
+            )
+
+            if checklist is None:
+                return (
+                    f"📊 Для бизнеса «{business.name}» "
+                    "пока нет проверок."
+                )
+
+            items = (
+                db.query(ChecklistItem)
+                .filter(
+                    ChecklistItem.checklist_id == checklist.id,
+                )
+                .all()
+            )
+
+            total = len(items)
+            checked = sum(
+                item.result is not None
+                for item in items
+            )
+            no = sum(
+                item.result == "no"
+                for item in items
+            )
+            unknown = sum(
+                item.result == "unknown"
+                for item in items
+            )
+            not_applicable = sum(
+                item.result == "not_applicable"
+                for item in items
+            )
+
+            if checklist.status == "completed":
+                status_text = "завершена"
+            elif checklist.status == "finished_early":
+                status_text = "завершена досрочно"
+            else:
+                status_text = "в процессе"
+
+            return (
+                "📊 Последний результат\n\n"
+                f"🏢 {business.name}\n"
+                f"Статус: {status_text}\n\n"
+                f"Проверено: {checked} из {total}\n"
+                f"❌ Нарушений: {no}\n"
+                f"❓ Не уверен: {unknown}\n"
+                f"➖ Не относится: {not_applicable}"
+            )
+
+        finally:
+            db.close()
 
     async def close(self) -> None:
         """Закрыть HTTP-клиент."""
@@ -154,6 +247,53 @@ class MaxBot:
             },
         )
 
+    async def send_main_menu(
+        self,
+        chat_id: int,
+        text: str = MENU_TEXT,
+    ) -> None:
+        """Показать главное меню бота."""
+
+        await self._request(
+            "POST",
+            "/messages",
+            params={
+                "chat_id": chat_id,
+            },
+            json={
+                "text": text,
+                "attachments": [
+                    {
+                        "type": "inline_keyboard",
+                        "payload": {
+                            "buttons": [
+                                [
+                                    {
+                                        "type": "open_app",
+                                        "text": "🚀 Начать самопроверку",
+                                        "web_app": "t44_hakaton_max_bot",
+                                    }
+                                ],
+                                [
+                                    {
+                                        "type": "callback",
+                                        "text": "📋 Мои проверки",
+                                        "payload": MY_CHECKS_PAYLOAD,
+                                    },
+                                    {
+                                        "type": "callback",
+                                        "text": "📊 Последний результат",
+                                        "payload": LAST_RESULT_PAYLOAD,
+                                    },
+                                ],
+                            ]
+                        },
+                    }
+                ],
+            },
+        )
+
+
     async def handle_bot_started(
         self,
         update: dict,
@@ -175,35 +315,10 @@ class MaxBot:
         )
 
         try:
-            response = await self._request(
-                "POST",
-                "/messages",
-                params={
-                    "chat_id": chat_id,
-                },
-                json={
-                    "text": WELCOME_TEXT,
-                    "attachments": [
-                        {
-                            "type": "inline_keyboard",
-                            "payload": {
-                                "buttons": [
-                                    [
-                                        {
-                                            "type": "open_app",
-                                            "text": "Начать самопроверку",
-                                            "web_app": "t44_hakaton_max_bot",
-                                        }
-                                    ]
-                                ]
-                            },
-                        }
-                    ],
-                },
+            await self.send_main_menu(
+                chat_id=chat_id,
+                text=WELCOME_TEXT,
             )
-
-            print("MAX SEND RESPONSE:")
-            print(response)
 
         except MaxApiError:
             logger.exception(
@@ -232,6 +347,111 @@ class MaxBot:
             text,
         )
 
+    async def handle_message_callback(
+        self,
+        update: dict,
+    ) -> None:
+        """Обработать нажатие callback-кнопки."""
+
+        callback = update.get("callback") or {}
+        payload = callback.get("payload")
+        chat_id = update.get("chat_id")
+
+        user = update.get("user") or {}
+        user_id = user.get("user_id")
+
+        if user_id is None:
+            logger.warning(
+                "message_callback без user.user_id: %s",
+                update,
+            )
+            return
+        if chat_id is None:
+            logger.warning(
+                "message_callback без chat_id: %s",
+                update,
+            )
+            return
+    
+        logger.info(
+            "Нажата callback-кнопка. chat_id=%s payload=%r",
+            chat_id,
+            payload,
+        )
+
+        if payload == MY_CHECKS_PAYLOAD:
+            db = SessionLocal()
+
+            try:
+                businesses = (
+                    db.query(Business)
+                    .filter(Business.user_id == user_id)
+                    .order_by(Business.updated_at.desc())
+                    .all()
+                )
+
+                if not businesses:
+                    await self.send_message(
+                        "📋 У вас пока нет добавленных бизнесов.\n\n"
+                        "Добавьте бизнес в приложении BusinessControl.",
+                        chat_id=chat_id,
+                    )
+                    return
+
+                lines = ["📋 Ваши проверки:\n"]
+
+                for business in businesses[:10]:
+                    checklist = (
+                        db.query(Checklist)
+                        .filter(
+                            Checklist.business_id == business.id,
+                        )
+                        .order_by(
+                            Checklist.updated_at.desc(),
+                            Checklist.id.desc(),
+                        )
+                        .first()
+                    )
+
+                    if checklist is None:
+                        status = "не начата"
+                    elif checklist.status == "draft":
+                        status = "в процессе"
+                    elif checklist.status == "finished_early":
+                        status = "завершена досрочно"
+                    elif checklist.status == "completed":
+                        status = "завершена"
+                    else:
+                        status = checklist.status
+
+                    lines.append(
+                        f"• {business.name} — {status}"
+                    )
+
+                await self.send_message(
+                    "\n".join(lines),
+                    chat_id=chat_id,
+                )
+
+            finally:
+                db.close()
+
+        elif payload == LAST_RESULT_PAYLOAD:
+            result_text = await self.get_last_checklist_result(
+               user_id=user_id,
+            )
+
+            await self.send_message(
+                result_text,
+                chat_id=chat_id,
+            )
+
+        else:
+            logger.info(
+                "Неизвестный callback payload: %r",
+                payload,
+            )
+
     async def handle_update(
         self,
         update: dict,
@@ -245,6 +465,9 @@ class MaxBot:
 
         elif update_type == "message_created":
             await self.handle_message_created(update)
+
+        elif update_type == "message_callback":
+            await self.handle_message_callback(update)
 
         else:
             logger.info(
