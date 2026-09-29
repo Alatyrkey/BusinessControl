@@ -59,6 +59,7 @@ class MaxBot:
 
         self._marker: int | None = None
         self._stop_event = asyncio.Event()
+        self._processed_callbacks: set[str] = set()
 
     async def get_last_checklist_result(
         self,
@@ -362,6 +363,18 @@ class MaxBot:
 
         callback = update.get("callback") or {}
         payload = callback.get("payload")
+        
+        callback_id = callback.get("callback_id")
+
+        if callback_id and callback_id in self._processed_callbacks:
+            logger.info(
+                "Повторный callback пропущен. callback_id=%s",
+                callback_id,
+            )
+            return
+
+        if callback_id:
+             self._processed_callbacks.add(callback_id)
 
         message = update.get("message") or {}
         recipient = message.get("recipient") or {}
@@ -369,7 +382,7 @@ class MaxBot:
 
         user = callback.get("user") or {}
         user_id = user.get("user_id")
-        
+
         if user_id is None:
             logger.warning(
                 "message_callback без user.user_id: %s",
