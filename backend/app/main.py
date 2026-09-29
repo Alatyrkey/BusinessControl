@@ -1,5 +1,7 @@
 import logging
+import asyncio
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,12 +10,36 @@ from app.config import settings
 from app.database import init_db
 from app.endpoints import router as api_router
 from app.schemas import HealthResponse
+from app.services.max_bot import MaxBot
+from app.services.reminder_service import ReminderService
 
 
 logger = logging.getLogger("businesscontrol")
 
 
+# Для текущего MVP автоматически создаём таблицы при запуске.
+# Перед production-развёртыванием эту логику можно заменить
+# полноценными миграциями Alembic.
+init_db()
+
+max_bot = MaxBot()
+reminder_service = ReminderService(max_bot)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    reminder_task = asyncio.create_task(reminder_service.run())
+
+    try:
+        yield
+    finally:
+        reminder_service.stop()
+        await reminder_task
+        await max_bot.close()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="BusinessControl API",
     description="Backend сервис самопроверки бизнеса по нормативным требованиям",
     version="0.1.0",
@@ -63,12 +89,6 @@ async def log_requests(request: Request, call_next):
     )
 
     return response
-
-
-# Для текущего MVP автоматически создаём таблицы при запуске.
-# Перед production-развёртыванием эту логику можно заменить
-# полноценными миграциями Alembic.
-init_db()
 
 
 # Подключаем API-роуты приложения.

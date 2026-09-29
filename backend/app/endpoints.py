@@ -858,13 +858,13 @@ def finish_checklist(
                 is_active=True,
                 period_days=30,
                 last_notification_at=None,
-                next_notification_at=now + timedelta(days=30),
+                next_notification_at=now + timedelta(minutes=1),
             )
             db.add(reminder)
         else:
             reminder.is_active = True
             reminder.period_days = 30
-            reminder.next_notification_at = now + timedelta(days=30)
+            reminder.next_notification_at = now + timedelta(minutes=1)
     try:
         db.commit()
         db.refresh(checklist)

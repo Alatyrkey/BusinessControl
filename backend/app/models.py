@@ -35,6 +35,13 @@ class Business(Base):
         nullable=False,
     )
 
+    # chat_id диалога MAX для автоматических уведомлений.
+    max_chat_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger,
+        nullable=True,
+        index=True,
+    )
+
     name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,

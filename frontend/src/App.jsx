@@ -1840,7 +1840,7 @@ const startChecklist = async () => {
       return;
     }
 
-    if (!currentAnswers[currentItem.item_id]) {
+    if (!currentAnswers[currentItem.item_id] && !currentAnswers[currentItem.id]) {
       return;
     }
 

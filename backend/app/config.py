@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Публичный URL нашего приложения.
     APP_URL: str = "http://localhost:8000"
 
+    # Публичный URL Mini App, который открывается кнопкой в MAX.
+    MINI_APP_URL: str = "https://sociology-occasions-exclusive-precisely.trycloudflare.com"
+
     # База данных SQLite для MVP.
     DATABASE_URL: str = "sqlite:///./data/businesscontrol.db"
 
