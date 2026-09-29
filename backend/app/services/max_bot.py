@@ -315,7 +315,7 @@ class MaxBot:
             chat_id,
         )
 
-        try
+        try:
          await self.send_main_menu(
             chat_id=chat_id,
             text=WELCOME_TEXT,
