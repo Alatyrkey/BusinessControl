@@ -343,11 +343,7 @@ class MaxBot:
             return
         
         if text.strip().lower() in {"/start", "start"}:
-            await self.send_main_menu(
-                chat_id=chat_id,
-                text=WELCOME_TEXT,
-            )
-            return
+           return
 
         logger.info(
             "Получено сообщение. chat_id=%s text=%r",
@@ -528,7 +524,7 @@ class MaxBot:
                         (update.get("callback") or {}).get("callback_id"),
                         self._marker,
                     )
-                    
+
                     try:
                         await self.handle_update(update)
 
