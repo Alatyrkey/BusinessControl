@@ -412,7 +412,7 @@ class MaxBot:
                 if not businesses:
                     await self.send_message(
                         "📋 У вас пока нет добавленного бизнеса.\n\n"
-                        "Добавьте бизнес в приложении БизнесКонтроль.",
+                        "Добавьте бизнес в приложение БизнесКонтроль.",
                         chat_id=chat_id,
                     )
                     return
