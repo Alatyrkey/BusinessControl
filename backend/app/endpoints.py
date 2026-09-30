@@ -117,7 +117,7 @@ def get_businesses(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id),
 ) -> list[BusinessResponse]:
-    """Возвращает только бизнесы текущего пользователя MAX."""
+    """Возвращает бизнесы текущего пользователя MAX с актуальным прогрессом."""
 
     businesses = (
         db.query(Business)
@@ -126,7 +126,68 @@ def get_businesses(
         .all()
     )
 
-    return businesses
+    result = []
+
+    for business in businesses:
+        active_checklist = (
+            db.query(Checklist)
+            .filter(
+                Checklist.business_id == business.id,
+                Checklist.status.in_(["draft", "finished_early"]),
+            )
+            .order_by(Checklist.updated_at.desc(), Checklist.id.desc())
+            .first()
+        )
+
+        last_result = (
+            db.query(Checklist)
+            .filter(
+                Checklist.business_id == business.id,
+                Checklist.status.in_(["completed", "finished_early"]),
+            )
+            .order_by(Checklist.updated_at.desc(), Checklist.id.desc())
+            .first()
+        )
+
+        checked = 0
+        violations = 0
+        unknown = 0
+
+        if active_checklist is not None:
+            items = (
+                db.query(ChecklistItem)
+                .filter(ChecklistItem.checklist_id == active_checklist.id)
+                .all()
+            )
+
+            checked = sum(1 for item in items if item.result is not None)
+            violations = sum(1 for item in items if item.result == "no")
+            unknown = sum(1 for item in items if item.result == "unknown")
+
+        business.checked = checked
+        business.violations = violations
+        business.unknown = unknown
+        business.active_checklist_id = (
+            active_checklist.id if active_checklist else None
+        )
+        business.active_status = (
+            active_checklist.status if active_checklist else None
+        )
+        business.last_result_checklist_id = (
+            last_result.id if last_result else None
+        )
+        business.last_result_status = (
+            last_result.status if last_result else None
+        )
+        business.last_result_at = (
+            last_result.completed_at or last_result.updated_at
+            if last_result
+            else None
+        )
+
+        result.append(business)
+
+    return result
 
 @router.delete(
     "/businesses/{business_id}",
