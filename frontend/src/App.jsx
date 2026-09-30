@@ -79,20 +79,26 @@ async function createBusinessApi(name, businessType) {
     }),
   });
 }
-
 async function deleteBusinessApi(businessId) {
   return apiRequest(`/businesses/${businessId}`, {
     method: "DELETE",
   });
 }
+
 async function createChecklistApi(businessId) {
   return apiRequest(`/businesses/${businessId}/checklists`, {
     method: "POST",
   });
 }
+
+async function fetchUnfinishedChecklistApi(businessId) {
+  return apiRequest(`/businesses/${businessId}/checklists/unfinished`);
+}
+
 async function fetchChecklistApi(checklistId) {
   return apiRequest(`/checklists/${checklistId}`);
 }
+
 async function updateChecklistItemApi(checklistItemId, result) {
   return apiRequest(
     `/checklist-items/${checklistItemId}`,
@@ -235,6 +241,12 @@ function getProgressPercent(checked) {
   return Math.round((safeChecked / TOTAL_REQUIREMENTS) * 100);
 }
  
+function getFirstUnansweredIndex(checklist) {
+  const index = checklist.findIndex((item) => item.result == null);
+
+  return index === -1 ? checklist.length - 1 : index;
+}
+
 function getChecklistSummary(answers) {
   const values = Object.values(answers);
  
@@ -791,7 +803,7 @@ function BusinessesScreen({
               <ShieldIcon />
           </div>
 
-          <h3>Не удалось загрузить бизнесы</h3>
+          <h3>Не удалось загрузить бизнес</h3>
 
           <p>{error}</p>
 
@@ -1616,7 +1628,7 @@ function App() {
           setBusinessesError(
             error instanceof Error
               ? error.message
-              : "Не удалось загрузить бизнесы",
+              : "Не удалось загрузить бизнес",
           );
         }
       } finally {
@@ -1733,14 +1745,36 @@ function App() {
     );
   }
 };
-
 const startChecklist = async () => {
-
   if (!selectedBusiness) {
     return;
   }
 
   try {
+    const unfinished = await fetchUnfinishedChecklistApi(
+      selectedBusiness.id,
+    );
+
+    if (unfinished) {
+      const checklistItems = unfinished.items;
+
+      const answers = Object.fromEntries(
+        checklistItems
+          .filter((item) => item.result != null)
+          .map((item) => [item.item_id, item.result]),
+      );
+
+      setCurrentChecklistId(unfinished.checklist_id);
+      setCurrentChecklist(checklistItems);
+      setCurrentAnswers(answers);
+      setCurrentQuestionIndex(
+        getFirstUnansweredIndex(checklistItems),
+      );
+      setScreen("checklist");
+
+      return;
+    }
+
     const checklist = await createChecklistApi(
       selectedBusiness.id,
     );
@@ -1751,15 +1785,7 @@ const startChecklist = async () => {
 
     setCurrentChecklistId(checklist.id);
     setCurrentChecklist(checklistItems);
-
-    setCurrentAnswers(
-      Object.fromEntries(
-        checklistItems
-          .filter((item) => item.result)
-          .map((item) => [item.item_id, item.result]),
-      ),
-    );
-
+    setCurrentAnswers({});
     setCurrentQuestionIndex(0);
     setScreen("checklist");
   } catch (error) {
