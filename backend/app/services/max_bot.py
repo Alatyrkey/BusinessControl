@@ -411,8 +411,8 @@ class MaxBot:
 
                 if not businesses:
                     await self.send_message(
-                        "📋 У вас пока нет добавленных бизнесов.\n\n"
-                        "Добавьте бизнес в приложении BusinessControl.",
+                        "📋 У вас пока нет добавленного бизнеса.\n\n"
+                        "Добавьте бизнес в приложении БизнесКонтроль.",
                         chat_id=chat_id,
                     )
                     return
@@ -444,7 +444,7 @@ class MaxBot:
                         status = checklist.status
 
                     lines.append(
-                        f"• {business.name} — {status}"
+                       f"- {business.name}: {status}"
                     )
 
                 await self.send_message(
