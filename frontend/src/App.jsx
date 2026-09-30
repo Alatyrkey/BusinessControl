@@ -158,25 +158,24 @@ function getDefaultBusinesses() {
     },
   ];
 }
- 
-function normalizeBusiness(raw) {
-  const checked = Number.isFinite(raw?.checked)
-    ? raw.checked
-    : Number.isFinite(raw?.progress)
-      ? Math.round((raw.progress / 100) * TOTAL_REQUIREMENTS)
-      : 0;
- 
-  return {
-    id: raw?.id ?? `business-${Date.now()}`,
-    name: raw?.name ?? "",
-    type: raw?.type ?? "",
-    checked: Math.min(Math.max(checked, 0), TOTAL_REQUIREMENTS),
-    violations: Math.max(Number(raw?.violations) || 0, 0),
-    unknown: Math.max(Number(raw?.unknown) || 0, 0),
-    demo: Boolean(raw?.demo),
-  };
+ function normalizeBusiness(raw) {
+   const checked = Number(raw?.checked) || 0;
+   const violations = Number(raw?.violations) || 0;
+   const unknown = Number(raw?.unknown) || 0;
+
+   return {
+     id: raw?.id ?? `business-${Date.now()}`,
+     name: raw?.name ?? "",
+     type: raw?.type ?? "",
+     checked: Math.min(
+       Math.max(checked, 0),
+       TOTAL_REQUIREMENTS,
+     ),
+     violations: Math.max(violations, 0),
+     unknown: Math.max(unknown, 0),
+     demo: Boolean(raw?.demo),
+  \};
 }
- 
 function loadBusinesses() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
