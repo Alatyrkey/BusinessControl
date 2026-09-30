@@ -158,22 +158,28 @@ function getDefaultBusinesses() {
     },
   ];
 }
- function normalizeBusiness(raw) {
-   const checked = Number(raw?.checked) || 0;
-   const violations = Number(raw?.violations) || 0;
-   const unknown = Number(raw?.unknown) || 0;
+function normalizeBusiness(raw) {
+  const checked = Number(raw?.checked) || 0;
+  const violations = Number(raw?.violations) || 0;
+  const unknown = Number(raw?.unknown) || 0;
 
-   return {
-     id: raw?.id ?? `business-${Date.now()}`,
-     name: raw?.name ?? "",
-     type: raw?.type ?? "",
-     checked: Math.min(
-       Math.max(checked, 0),
-       TOTAL_REQUIREMENTS,
-     ),
-     violations: Math.max(violations, 0),
-     unknown: Math.max(unknown, 0),
-     demo: Boolean(raw?.demo),
+  return {
+    id: raw?.id ?? `business-${Date.now()}`,
+    name: raw?.name ?? "",
+    type: raw?.type ?? "",
+    checked: Math.min(
+      Math.max(checked, 0),
+      TOTAL_REQUIREMENTS,
+    ),
+    violations: Math.max(violations, 0),
+    unknown: Math.max(unknown, 0),
+    active_checklist_id: raw?.active_checklist_id ?? null,
+    active_status: raw?.active_status ?? null,
+    last_result_checklist_id:
+      raw?.last_result_checklist_id ?? null,
+    last_result_status: raw?.last_result_status ?? null,
+    last_result_at: raw?.last_result_at ?? null,
+    demo: Boolean(raw?.demo),
   };
 }
 function loadBusinesses() {
@@ -1896,14 +1902,21 @@ const startChecklist = async () => {
    setCurrentQuestionIndex(nextIndex);
  };
  
-  const handleChecklistBack = (targetIndex) => {
-    if (typeof targetIndex === "number") {
-      setCurrentQuestionIndex(targetIndex);
-      return;
-    }
+const handleChecklistBack = async (targetIndex) => {
+  if (typeof targetIndex === "number") {
+    setCurrentQuestionIndex(targetIndex);
+    return;
+  }
 
-    setScreen("business");
-  };
+  try {
+    const data = await fetchBusinesses();
+    setBusinesses(data);
+  } catch (error) {
+    console.error("Не удалось обновить данные бизнеса:", error);
+  }
+
+  setScreen("business");
+};
  
   const finishEarly = async () => {
     setIsEarlyFinishOpen(false);
