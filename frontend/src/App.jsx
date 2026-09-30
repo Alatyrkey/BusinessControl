@@ -174,7 +174,7 @@ function getDefaultBusinesses() {
      violations: Math.max(violations, 0),
      unknown: Math.max(unknown, 0),
      demo: Boolean(raw?.demo),
-  \};
+  };
 }
 function loadBusinesses() {
   try {
